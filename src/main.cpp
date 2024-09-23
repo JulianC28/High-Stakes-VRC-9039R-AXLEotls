@@ -3,7 +3,9 @@
 
 // variables
 int driveChoicer = 0;
+bool driveDone = false;
 int autonChoicer = 0;
+bool autonDone = false;
 
 // motor setup
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
@@ -17,7 +19,7 @@ pros::Imu inertialSensor(7);
 // drivetrain settings
 lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
                               &rightDrive, // right motor group
-                              0, // Track Width Not Found Yet, // __ inch track width
+                              13.5, // Track Width Not Found Yet, // 13.5 inch track width
                               lemlib::Omniwheel::NEW_4, // using new 4" omnis
                               372.857142882, // drivetrain rpm is ~373 rpm
                               2 // horizontal drift is 2 (for now)
@@ -71,17 +73,6 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
 void initialize() { 
 	pros::lcd::initialize(); // initialize brain screen
     chassis.calibrate(); // calibrate sensors
-    // print position to brain screen
-    pros::Task screen_task([&]() {
-        while (true) {
-            // print robot location to the brain screen
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            // delay to save resources
-            pros::delay(20);
-        }
-    });
 }
 
 /**
@@ -101,14 +92,21 @@ void disabled() {}
  * starts.
  */
 void competition_initialize() {
-	while (true) {
-		pros::lcd::clear_line(1);
-		pros::lcd::clear_line(2);
+	while (autonDone == false && driveDone == false) {
+		
+		while(autonDone == false){
 
-		pros::lcd::print(1, "Cycle Through Autons with R1 & L1");
-		pros::lcd::print(2, "Cycle Through Drives with R2 & L2");
+			pros::lcd::clear_line(1);
+			pros::lcd::clear_line(2);
+			pros::lcd::clear_line(3);
+			pros::lcd::clear_line(4);
+			pros::lcd::clear_line(5);
+			pros::lcd::clear_line(6);
 
-		switch(autonChoicer) {
+			pros::lcd::print(1, "Cycle through autons with R2 & L2");
+			pros::lcd::print(2, "Done setting auton? (Press X to confirm)");
+
+			switch(autonChoicer){
 			case 0:
 			pros::lcd::clear_line(4);
 			pros::lcd::clear_line(5);
@@ -215,7 +213,42 @@ void competition_initialize() {
 			pros::lcd::clear_line(6);
 
 			pros::lcd::print(4, "Lost in the sauce? Press A to reset");
-		}
+			}
+
+			if(controller.get_digital(DIGITAL_R2)){
+				autonChoicer++;
+			}
+
+			else if(controller.get_digital(DIGITAL_L2)){
+				autonChoicer--;
+			}
+			
+			else if(controller.get_digital(DIGITAL_X)){
+				pros::lcd::clear_line(1);
+				pros::lcd::clear_line(2);
+				pros::lcd::print(1, "Are you sure you are done setting your auton?");
+				pros::lcd::print(2, "Press Y to confirm");
+				
+				if(controller.get_digital(DIGITAL_Y)){
+					autonDone = true;
+				}
+			}
+
+		pros::delay(25);
+	}
+
+	while(driveDone == false){
+
+		pros::lcd::clear_line(1);
+		pros::lcd::clear_line(2);
+		pros::lcd::clear_line(3);
+		pros::lcd::clear_line(4);
+		pros::lcd::clear_line(5);
+		pros::lcd::clear_line(6);
+
+		pros::lcd::print(1, "Cycle through drive schemes with R2 & L2");
+		pros::lcd::print(2, "Done setting drive scheme? (Press X to confirm)");
+
 		switch(driveChoicer) {
 			case 0:
 			pros::lcd::clear_line(7);
@@ -253,26 +286,31 @@ void competition_initialize() {
 			pros::lcd::clear_line(9);
 
 			pros::lcd::print(7, "Lost in the sauce? Press A to reset");
+
+			pros::delay(25);
 		}
 
-		if(controller.get_digital(DIGITAL_R1)) {
-			autonChoicer++;
-		}
-		else if(controller.get_digital(DIGITAL_L1)) {
-			autonChoicer--;
-		}
-		else if(controller.get_digital(DIGITAL_R2)) {
-			driveChoicer++;
-		}
-		else if(controller.get_digital(DIGITAL_L2)) {
-			driveChoicer--;
-		}
-		else if(controller.get_digital(DIGITAL_A)) {
-			autonChoicer = 0;
-			driveChoicer = 0;
-		}
+		if(controller.get_digital(DIGITAL_R2)){
+				driveChoicer++;
+			}
+
+			else if(controller.get_digital(DIGITAL_L2)){
+				driveChoicer--;
+			}
+			
+			else if(controller.get_digital(DIGITAL_X)){
+				pros::lcd::clear_line(1);
+				pros::lcd::clear_line(2);
+				pros::lcd::print(1, "Are you sure you are done setting your drive scheme?");
+				pros::lcd::print(2, "Press Y to confirm");
+				
+				if(controller.get_digital(DIGITAL_Y)){
+					driveDone = true;
+				}
+			}
 
 		pros::delay(25);
+		}
 	}
 }
 
