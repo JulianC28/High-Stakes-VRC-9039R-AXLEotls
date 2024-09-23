@@ -1,17 +1,26 @@
 #include "main.h"
+#include "colors.h"
 #include "lemlib/api.hpp" // IWYU pragma: keep
 
 // variables
-int driveChoicer = 0;
-bool driveDone = false;
-int autonChoicer = 0;
-bool autonDone = false;
+bool driveDone1, driveDone2, autonDone1, autonDone2, autonDone3, autonDone4, autonSkip = false;
+bool autonRed, autonExtra, autonRings, autonAWP, noAuton, driveTank, driveCurve, driveArcade;
+int pistonValue = 1;
+int red = 16711680;
+int blue = 65535;
+int yellow = 16776960;
+int black = 0;
+int white = 16777215;
+std::string autonColorString, autonRingsString, autonAWPString, autonSkipString, driveString;
 
 // motor setup
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
-pros::MotorGroup leftDrive({-1, -2});    // creates a motor group with negative ports 1 & 2
-pros::MotorGroup rightDrive({3, 4});  // creates a motor group with forwards ports 3 & 4
+pros::MotorGroup rightDrive({1, 2});    // creates a motor group with negative ports 1 & 2
+pros::MotorGroup leftDrive({-3, -4});  // creates a motor group with forwards ports 3 & 4
 pros::MotorGroup intake({-5, 6}); // creates a motor group with forwards port 6 & backwards port 5
+
+// adi setup
+pros::ADIDigitalOut piston ('A');
 
 // sensor setup
 pros::Imu inertialSensor(7);
@@ -38,17 +47,17 @@ lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
                                               0, // integral gain (kI)
                                               3, // derivative gain (kD)
                                               3, // anti windup
-                                              1, // small error range, in inches
+                                              2, // small error range, in inches
                                               100, // small error range timeout, in milliseconds
-                                              3, // large error range, in inches
+                                              6, // large error range, in inches
                                               500, // large error range timeout, in milliseconds
-                                              20 // maximum acceleration (slew)
+                                              100 // maximum acceleration (slew)
 );
 
 // angular PID controller
-lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
+lemlib::ControllerSettings angular_controller(10, // proportional gain (kP)
                                               0, // integral gain (kI)
-                                              10, // derivative gain (kD)
+                                              2, // derivative gain (kD)
                                               0, // anti windup
                                               0, // small error range, in degrees
                                               0, // small error range timeout, in milliseconds
@@ -70,7 +79,7 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-void initialize() { 
+void initialize() {
 	pros::lcd::initialize(); // initialize brain screen
     chassis.calibrate(); // calibrate sensors
 }
@@ -91,226 +100,181 @@ void disabled() {}
  * This task will exit when the robot is enabled and autonomous or opcontrol
  * starts.
  */
+
 void competition_initialize() {
-	while (autonDone == false && driveDone == false) {
-		
-		while(autonDone == false){
-
-			pros::lcd::clear_line(1);
-			pros::lcd::clear_line(2);
-			pros::lcd::clear_line(3);
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(1, "Cycle through autons with R2 & L2");
-			pros::lcd::print(2, "Done setting auton? (Press X to confirm)");
-
-			switch(autonChoicer){
-			case 0:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-			
-			pros::lcd::print(4, "Previous: Nothing Selected");
-			pros::lcd::print(5, "Current: No Auton");
-			pros::lcd::print(6, "Next: Prototype");
-			break;
-
-			case 1:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: No Auton");
-			pros::lcd::print(5, "Current: Prototype");
-			pros::lcd::print(6, "Next: AWP, Red Alliance, Rings");
-			break;
-
-			case 2:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-			
-			pros::lcd::print(4, "Previous: Prototype");
-			pros::lcd::print(5, "Current: AWP, Red Alliance, Rings");
-			pros::lcd::print(6, "Next: AWP, Red Alliance, Mobile Goal");
-			break;
-
-			case 3:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: AWP, Red Alliance, Rings");
-			pros::lcd::print(5, "Current: AWP, Red Alliance, Mobile Goal");
-			pros::lcd::print(6, "Next: AWP, Blue Alliance, Rings");
-			break;
-
-			case 4:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: AWP, Red Alliance, Mobile Goal");
-			pros::lcd::print(5, "Current: AWP, Blue Alliance, Rings");
-			pros::lcd::print(6, "Next: AWP, Blue Alliance, Mobile Goal");
-			break;
-
-			case 5:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: AWP, Blue Allianve, Rings");
-			pros::lcd::print(5, "Current: AWP, Blue Alliance, Mobile Goal");
-			pros::lcd::print(6, "Next: No AWP, Red Alliance, Rings");
-			break;
-
-			case 6:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "AWP, Blue Alliance, Mobile Goal");
-			pros::lcd::print(5, "Current: No AWP, Red Alliance, Rings");
-			pros::lcd::print(6, "Next: No AWP, Red Alliance, Mobile Goal");
-			break;
-
-			case 7:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: No AWP, Red Alliance, Rings");
-			pros::lcd::print(5, "Current: No AWP, Red Alliance, Mobile Goal");
-			pros::lcd::print(6, "Next: No AWP, Blue Alliance, Rings");
-			break;
-
-			case 8:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: No AWP, Red Alliance, Mobile Goal");
-			pros::lcd::print(5, "Current: No AWP, Blue Alliance, Rings");
-			pros::lcd::print(6, "Next: No AWP, Blue Alliance, Mobile Goal");
-			break;
-
-			case 9:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Previous: No AWP, Blue Alliance, Rings");
-			pros::lcd::print(5, "Current: No AWP, Blue Alliance, Mobile Goal");
-			pros::lcd::print(6, "Nothing Selected");
-			break;
-
-			default:
-			pros::lcd::clear_line(4);
-			pros::lcd::clear_line(5);
-			pros::lcd::clear_line(6);
-
-			pros::lcd::print(4, "Lost in the sauce? Press A to reset");
-			}
-
-			if(controller.get_digital(DIGITAL_R2)){
-				autonChoicer++;
-			}
-
-			else if(controller.get_digital(DIGITAL_L2)){
-				autonChoicer--;
-			}
-			
-			else if(controller.get_digital(DIGITAL_X)){
-				pros::lcd::clear_line(1);
-				pros::lcd::clear_line(2);
-				pros::lcd::print(1, "Are you sure you are done setting your auton?");
-				pros::lcd::print(2, "Press Y to confirm");
-				
-				if(controller.get_digital(DIGITAL_Y)){
-					autonDone = true;
-				}
-			}
-
-		pros::delay(25);
+	pros::screen_touch_status_s_t status = pros::screen::touch_status();
+	while(autonDone1 == false) {
+		pros::screen::erase();
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(0, 0, 160, 200);
+		pros::screen::set_pen(blue);
+		pros::screen::draw_rect(160, 200, 320, 0);
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(320, 0, 480, 200);
+		pros::screen::set_pen(black);
+		pros::screen::print(TEXT_LARGE, 80, 100, "RED");
+		pros::screen::print(TEXT_LARGE, 240, 100, "BLUE");
+		pros::screen::print(TEXT_LARGE, 400, 100, "EXTRA");
+		if(status.x <= 150){
+			autonRed, autonDone1 = true;
+			autonColorString = "Red Alliance";
+		}
+		else if(170 <= status.x <= 310) {
+			autonRed = false;
+			autonDone1 = true;
+			autonColorString = "Blue Alliance";
+		}
+		else if(330 <= status.x <= 470) {
+			autonExtra, autonDone1 = true;
+		}
 	}
-
-	while(driveDone == false){
-
-		pros::lcd::clear_line(1);
-		pros::lcd::clear_line(2);
-		pros::lcd::clear_line(3);
-		pros::lcd::clear_line(4);
-		pros::lcd::clear_line(5);
-		pros::lcd::clear_line(6);
-
-		pros::lcd::print(1, "Cycle through drive schemes with R2 & L2");
-		pros::lcd::print(2, "Done setting drive scheme? (Press X to confirm)");
-
-		switch(driveChoicer) {
-			case 0:
-			pros::lcd::clear_line(7);
-			pros::lcd::clear_line(8);
-			pros::lcd::clear_line(9);
-
-			pros::lcd::print(7, "Previous: Nothing Selected");
-			pros::lcd::print(8, "Current Drive Method: Tank");
-			pros::lcd::print(9, "Next: Curvature Drive");
-			break;
-
-			case 1:
-			pros::lcd::clear_line(7);
-			pros::lcd::clear_line(8);
-			pros::lcd::clear_line(9);
-
-			pros::lcd::print(7, "Previous: Tank Drive");
-			pros::lcd::print(8, "Drive Method: Curvature");
-			pros::lcd::print(9, "Next: Arcade Drive");
-			break;
-
-			case 2:
-			pros::lcd::clear_line(7);
-			pros::lcd::clear_line(8);
-			pros::lcd::clear_line(9);
-
-			pros::lcd::print(7, "Previous: Curvature Drive");
-			pros::lcd::print(8, "Drive Method: Arcade");
-			pros::lcd::print(9, "Next: Nothing Selected");
-			break;
-
-			default:
-			pros::lcd::clear_line(7);
-			pros::lcd::clear_line(8);
-			pros::lcd::clear_line(9);
-
-			pros::lcd::print(7, "Lost in the sauce? Press A to reset");
-
-			pros::delay(25);
+	while(autonSkip == false && autonDone1 == true && autonExtra == true) {
+		pros::screen::erase();
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(0, 170, 240, 0);
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(240, 0, 480, 170);
+		pros::screen::set_pen(black);
+		pros::screen::draw_rect(0, 170, 480, 200);
+		pros::screen::print(TEXT_LARGE, 120, 85, "NO AUTON");
+		pros::screen::print(TEXT_LARGE, 360, 85, "PROTOTYPE");
+		pros::screen::set_pen(white);
+		pros::screen::print(TEXT_LARGE, 240, 185, "BACK");
+		if(status.y >= 170) {
+			autonDone1, autonExtra = false;
 		}
-
-		if(controller.get_digital(DIGITAL_R2)){
-				driveChoicer++;
-			}
-
-			else if(controller.get_digital(DIGITAL_L2)){
-				driveChoicer--;
-			}
-			
-			else if(controller.get_digital(DIGITAL_X)){
-				pros::lcd::clear_line(1);
-				pros::lcd::clear_line(2);
-				pros::lcd::print(1, "Are you sure you are done setting your drive scheme?");
-				pros::lcd::print(2, "Press Y to confirm");
-				
-				if(controller.get_digital(DIGITAL_Y)){
-					driveDone = true;
-				}
-			}
-
-		pros::delay(25);
+		else if(status.x <= 230 && status.y <= 160) {
+			noAuton, autonSkip = true;
+			autonSkipString = "No Auton";
+			autonColorString = "";
+			autonRingsString = "";
+			autonAWPString = "";
 		}
+		else if(250 <= status.x <= 470 && status.y <=160) {
+			noAuton = false;
+			autonSkip = true;
+			autonSkipString = "Prototype";
+			autonColorString = "";
+			autonRingsString = "";
+			autonAWPString = "";
+		}
+	}
+	while(autonDone2 == false && autonDone1 == true && autonSkip == false) {
+		pros::screen::erase();
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(0, 170, 240, 0);
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(240, 0, 480, 170);
+		pros::screen::set_pen(black);
+		pros::screen::draw_rect(0, 170, 480, 200);
+		pros::screen::print(TEXT_LARGE, 120, 85, "RINGS");
+		pros::screen::print(TEXT_LARGE, 360, 85, "GOAL");
+		pros::screen::set_pen(white);
+		pros::screen::print(TEXT_LARGE, 240, 185, "BACK");
+		if(status.y >= 170) {
+			autonDone1 = false;
+		}
+		else if(status.x <= 230 && status.y <= 160) {
+			autonRings, autonDone2 = true;
+			autonRingsString = "Extra Rings";
+		}
+		else if(250 <= status.x <= 470 && status.y <=160) {
+			autonRings = false;
+			autonDone2 = true;
+			autonRingsString = "Extra Mobile Goal";
+		}
+	}
+	while(autonDone3 == false && autonDone2 == true && autonDone1 == true && autonSkip == false) {
+		pros::screen::erase();
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(0, 170, 240, 0);
+		pros::screen::set_pen(blue);
+		pros::screen::draw_rect(240, 0, 480, 170);
+		pros::screen::set_pen(black);
+		pros::screen::draw_rect(0, 170, 480, 200);
+		pros::screen::print(TEXT_LARGE, 120, 85, "AWP");
+		pros::screen::print(TEXT_LARGE, 360, 85, "NO AWP");
+		pros::screen::set_pen(white);
+		pros::screen::print(TEXT_LARGE, 240, 185, "BACK");
+		if(status.y >= 170) {
+			autonDone2 = false;
+		}
+		else if(status.x <= 230 && status.y <= 160) {
+			autonAWP, autonDone3 = true;
+			autonAWPString = "With AWP";
+		}
+		else if(250 <= status.x <= 470 && status.y <=160) {
+			autonAWP = false;
+			autonDone3 = true;
+			autonAWPString = "Without AWP";
+		}
+	}
+	while((autonDone4 == false && autonDone3 == true && autonDone2 == true && autonDone1 == true) || autonSkip == true) {
+		pros::screen::erase();
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(0, 170, 240, 0);
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(240, 0, 480, 170);
+		pros::screen::set_pen(black);
+		pros::screen::draw_rect(0, 170, 480, 200);
+		pros::screen::print(TEXT_LARGE, 120, 85, "CONFIRM");
+		pros::screen::print(TEXT_LARGE, 360, 85, "GO BACK");
+		pros::screen::set_pen(white);
+		pros::screen::print(TEXT_MEDIUM, 2, "Current Auton: ", autonColorString, autonRingsString, autonAWPString, autonSkipString);
+		if(status.x <= 230 && status.y <= 160) {
+			autonDone4 = true;
+		}
+		else if(250 <= status.x <= 470 && status.y <=160) {
+			autonDone4, autonSkip = false;
+		}
+	}
+	while(autonDone4 == true && driveDone1 == false) {
+		pros::screen::erase();
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(0, 0, 160, 200);
+		pros::screen::set_pen(blue);
+		pros::screen::draw_rect(160, 200, 320, 0);
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(320, 0, 480, 200);
+		pros::screen::set_pen(black);
+		pros::screen::print(TEXT_LARGE, 80, 100, "TANK");
+		pros::screen::print(TEXT_LARGE, 240, 100, "CURVATURE");
+		pros::screen::print(TEXT_LARGE, 400, 100, "ARCADE");
+		if(status.x <= 150){
+			driveTank, driveDone1 = true;
+			driveString = "Tank Drive";
+		}
+		else if(170 <= status.x <= 310) {
+			driveCurve, driveDone1 = true;
+			driveString = "Curvature Drive";
+		}
+		else if(330 <= status.x <= 470) {
+			driveArcade, driveDone1 = true;
+			driveString = "Arcade Drive";
+		}
+	}
+	while(driveDone2 == false && driveDone1 == true) {
+		pros::screen::erase();
+		pros::screen::set_pen(yellow);
+		pros::screen::draw_rect(0, 170, 240, 0);
+		pros::screen::set_pen(red);
+		pros::screen::draw_rect(240, 0, 480, 170);
+		pros::screen::set_pen(black);
+		pros::screen::draw_rect(0, 170, 480, 200);
+		pros::screen::print(TEXT_LARGE, 120, 85, "CONFIRM");
+		pros::screen::print(TEXT_LARGE, 360, 85, "GO BACK");
+		pros::screen::set_pen(white);
+		pros::screen::print(TEXT_MEDIUM, 2, "Current Drive: ", driveString);
+		if(status.x <= 230 && status.y <= 160) {
+			driveDone2 = true;
+		}
+		else if(250 <= status.x <= 470 && status.y <=160) {
+			driveDone2 = false;
+			driveTank, driveCurve, driveArcade = false;
+		}
+	}
+	while(autonDone4 == true && driveDone2 == true) {
+	
 	}
 }
 
@@ -325,11 +289,15 @@ void competition_initialize() {
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
+
+
 void autonomous() {
-	// set position to x:0, y:0, heading:0
-    chassis.setPose(0, 0, 0);
-    // turn to face heading 90 with a very long timeout
-    chassis.turnToHeading(90, 100000);
+		// set position to x:0, y:0, heading:0
+    	chassis.setPose(0, 0, 0);
+    	// turn to face heading 90 with a very long timeout
+    	// chassis.turnToHeading(180, 100000);
+		// move 48" forwards
+    	// chassis.moveToPoint(0, 48, 10000);]
 }
 
 /**
@@ -347,46 +315,54 @@ void autonomous() {
  */
 void opcontrol() {
 
-	while (true) { // infinite loop
+	while (true) {
 
-		// DRIVE CONTROLS
-
-		// tank drive control scheme
-		if (driveChoicer == 0) {
-			int tankLeft = leftDrive.move(controller.get_analog(ANALOG_LEFT_Y)*0.87);               
-			int tankRight = rightDrive.move(controller.get_analog(ANALOG_RIGHT_Y)*0.87);                   
+// tank drive control scheme
+		if (driveTank == true) {
+			int tankLeft = controller.get_analog(ANALOG_LEFT_Y);         
+			int tankRight = controller.get_analog(ANALOG_RIGHT_Y);                   
 			chassis.tank(tankLeft, tankRight);
 		}
 
 		// curvature drive control scheme
-		if (driveChoicer == 1) {
-			int curvatureLeft = leftDrive.move(controller.get_analog(ANALOG_LEFT_Y)*0.87);                    
-			int curvatureRight = rightDrive.move(controller.get_analog(ANALOG_RIGHT_X)*0.87);                    
+		if (driveCurve == true) {
+			int curvatureLeft = controller.get_analog(ANALOG_LEFT_Y);                   
+			int curvatureRight = controller.get_analog(ANALOG_RIGHT_X);                   
 			chassis.curvature(curvatureLeft, curvatureRight);
 		}
 
 		// arcade drive control scheme
-		if (driveChoicer == 2) {
-			int arcadeLeft = leftDrive.move(controller.get_analog(ANALOG_LEFT_Y)*0.87);                      
-			int arcadeRight = rightDrive.move(controller.get_analog(ANALOG_RIGHT_X)*0.87);
+		if (driveArcade == true) {
+			int arcadeLeft = controller.get_analog(ANALOG_LEFT_Y);;                     
+			int arcadeRight = controller.get_analog(ANALOG_RIGHT_X);
 			chassis.arcade(arcadeLeft, arcadeRight);
 		}
-
-		// intake control scheme
 		
+		// Intake Control Scheme
 		if(controller.get_digital(DIGITAL_R2)) {
-			intake.move_velocity(200);
+			intake.move(127);
 		}
 		else if(controller.get_digital(DIGITAL_L2)) {
-			intake.move_velocity(-200);
+			intake.move(-127);
 		}
 		else {
-			intake.move_velocity(0);
+			intake.move(0);
 		}
+		
+		//clump
 
-		// clamp control scheme
+		if(controller.get_digital(DIGITAL_A) && pistonValue == 1){
+			piston.set_value(false);
+			pros::delay(500);
+			pistonValue = 0;
+		}
+		else if(controller.get_digital(DIGITAL_A) && pistonValue == 0){
+			piston.set_value(true);
+			pros::delay(500);
+			pistonValue = 1;
+		}
+		
+		pros::delay(20);
 
-
-		pros::delay(25);
 	}
 }
