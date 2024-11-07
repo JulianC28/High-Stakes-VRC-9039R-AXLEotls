@@ -1,7 +1,6 @@
 #include "main.h"
 #include "lemlib/api.hpp" // IWYU pragma: keep
 #include "liblvgl/lvgl.h"
-#include "auton.hpp"
 
 // LV_IMG_DECLARE(axolotlFire);
 
@@ -235,8 +234,16 @@ void opcontrol() {
             intake.move(0); // stops the intake from moving
 			conveyor.move(0); // stops the conveyor from moving
         }
-       
-        // clamp control scheme
+
+        // clamp control scheme (new)
+        if(controller.get_digital(DIGITAL_A)){
+            piston.set_value(false);
+        }
+        else if(controller.get_digital(DIGITAL_B)){
+
+        }
+
+        /* clamp control scheme (old)
         if(controller.get_digital(DIGITAL_A) && pistonValue == 1){
             piston.set_value(false); 
             pros::delay(500);
@@ -247,6 +254,7 @@ void opcontrol() {
             pros::delay(500);
             pistonValue = 1;
         }
+        */
        
 		// lift control scheme
 		if(controller.get_digital(DIGITAL_R1)){
@@ -274,4 +282,3 @@ void opcontrol() {
         pros::delay(20); // delay to save resources
     }
 }
-
