@@ -16,7 +16,7 @@ pros::MotorGroup rightDrive({1, 2}); // creates the right drivetrain motor group
 pros::MotorGroup leftDrive({-3, -4}); // creates the left drivetrain motor group with backwards ports 3 & 4
 pros::MotorGroup lift({7, 8}); // creates the lift motor group with forwards ports 7 & 8
 pros::Motor intake(-5); // creates the intake motor with backwards port 5
-pros::Motor conveyor(6); // creates the conveyor motor with forwards port 6
+pros::Motor conveyor(-6); // creates the conveyor motor with forwards port 6
 pros::Motor wing(9); // creates the wing motor with forward port 8
 
 // adi setup
@@ -25,7 +25,7 @@ pros::ADIEncoder verticalEncoder ('C', 'D', true);
 
 // odom setup
 pros::Imu inertialSensor(7);
-lemlib::TrackingWheel verticalWheel(&verticalEncoder, lemlib::Omniwheel::OLD_275, -1.5);
+//lemlib::TrackingWheel verticalWheel(&verticalEncoder, lemlib::Omniwheel::OLD_275, -1.5);
 
 // drivetrain settings
 lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
@@ -37,7 +37,7 @@ lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
 );
 
 // odometry settings
-lemlib::OdomSensors sensors(&verticalWheel, // vertical tracking wheel 1
+lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, (temporarily null)
                             nullptr, // vertical tracking wheel 2, set to null
                             nullptr, // horizontal tracking wheel 1, set to null
                             nullptr, // horizontal tracking wheel 2, set to null
@@ -103,7 +103,7 @@ void disabled() {}
  * starts.
  */
 
-void competition_initialize(void) {
+void competition_initialize() {
     
 }
 
@@ -121,23 +121,31 @@ void competition_initialize(void) {
 void autonomous() {
     if(red == true && rings == true){
         intake.set_zero_position(0);
-        chassis.setPose(0, 0, 0); // set position to x:0, y:0, heading:0
-        chassis.moveToPoint(0, 10, 5000);
+        leftDrive.set_zero_position(0);
+        rightDrive.set_zero_position(0);
+        leftDrive.move_absolute(50, 100);
+        rightDrive.move_absolute(50, 100);
     }
     if(red == true && rings == false){
         intake.set_zero_position(0);
-        chassis.setPose(0, 0, 0); // set position to x:0, y:0, heading:0
-        chassis.moveToPoint(0, 10, 5000);
+        leftDrive.set_zero_position(0);
+        rightDrive.set_zero_position(0);
+        leftDrive.move_absolute(50, 100);
+        rightDrive.move_absolute(50, 100);
     }
     if(red == false && rings == true){
         intake.set_zero_position(0);
-        chassis.setPose(0, 0, 0); // set position to x:0, y:0, heading:0
-        chassis.moveToPoint(0, 10, 5000);
+        leftDrive.set_zero_position(0);
+        rightDrive.set_zero_position(0);
+        leftDrive.move_absolute(50, 100);
+        rightDrive.move_absolute(50, 100);
     }
     if(red == false && rings == false){
         intake.set_zero_position(0);
-        chassis.setPose(0, 0, 0); // set position to x:0, y:0, heading:0
-        chassis.moveToPoint(0, 10, 5000);
+        leftDrive.set_zero_position(0);
+        rightDrive.set_zero_position(0);
+        leftDrive.move_absolute(50, 100);
+        rightDrive.move_absolute(50, 100);
     }
 }
 
@@ -240,7 +248,7 @@ void opcontrol() {
             piston.set_value(false);
         }
         else if(controller.get_digital(DIGITAL_B)){
-
+            piston.set_value(true);
         }
 
         /* clamp control scheme (old)
@@ -258,16 +266,17 @@ void opcontrol() {
        
 		// lift control scheme
 		if(controller.get_digital(DIGITAL_R1)){
-			lift.move(95); // moves the lift forwards at ~75% velocity
+			lift.move(50); // moves the lift forwards at ~75% velocity
 		}
 		else if(controller.get_digital(DIGITAL_L1)){
-			lift.move(-95); // moves the lift backwards at ~75% velocity
+			lift.move(-25); // moves the lift backwards at ~75% velocity
 		}
 		else{
 			lift.move(0); // stops the lift from moving
 		}
 
-        // wing control scheme
+        /*
+        // wing control scheme (wing not completed yet)
         if(controller.get_digital(DIGITAL_Y) && wingValue == 0) {
             wing.move_absolute(-240, 100);
             pros::delay(500);
@@ -278,7 +287,8 @@ void opcontrol() {
             pros::delay(500);
             wingValue = 0;
         }
+        */
 
-        pros::delay(20); // delay to save resources
-    }
+		pros::delay(20); // delay to save resources
+	}
 }
