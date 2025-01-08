@@ -2,71 +2,78 @@
 #include "lemlib/api.hpp" // IWYU pragma: keep
 #include "liblvgl/lvgl.h"
 
+
 // LV_IMG_DECLARE(axolotlFire);
 
+
 // variables
-bool setupDone, setupDrive, setupColor, setupSide = false;
-int pistonValue = 1;
-int wingValue = 0;
-bool jake, red, rings;
+bool setupColor = false, setupSide = false, test = false, justMove = false, red, rings;
+
 
 // motor setup
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 pros::MotorGroup rightDrive({1, 2}); // creates the right drivetrain motor group with forwards ports 1 & 2
 pros::MotorGroup leftDrive({-3, -4}); // creates the left drivetrain motor group with backwards ports 3 & 4
-pros::MotorGroup lift({7, 8}); // creates the lift motor group with forwards ports 7 & 8
 pros::Motor intake(-5); // creates the intake motor with backwards port 5
 pros::Motor conveyor(-6); // creates the conveyor motor with forwards port 6
-pros::Motor wing(9); // creates the wing motor with forward port 8
+pros::Motor wing(8); // creates the wing motor with forward port 8
+
 
 // adi setup
 pros::adi::DigitalOut piston ('A');
+pros::adi::DigitalOut Lift ('B');
 pros::ADIEncoder verticalEncoder ('C', 'D', true);
+
 
 // odom setup
 pros::Imu inertialSensor(7);
-//lemlib::TrackingWheel verticalWheel(&verticalEncoder, lemlib::Omniwheel::OLD_275, -1.5);
+// lemlib::TrackingWheel verticalWheel(&verticalEncoder, lemlib::Omniwheel::OLD_275, -1.5);
+
 
 // drivetrain settings
 lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
                               &rightDrive, // right motor group
-                              13.5, // Track Width Not Found Yet, // 13.5 inch track width
+                              13.5, // 13.5 inch track width
                               lemlib::Omniwheel::NEW_4, // using new 4" omnis
                               428.5714286, // drivetrain rpm is ~429 rpm
                               2 // horizontal drift is 2 (for now)
 );
 
+
 // odometry settings
-lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, (temporarily null)
+lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, set to null (temporary)
                             nullptr, // vertical tracking wheel 2, set to null
                             nullptr, // horizontal tracking wheel 1, set to null
                             nullptr, // horizontal tracking wheel 2, set to null
                             &inertialSensor // inertial sensor
 );
 
-// lateral PID controller
-lemlib::ControllerSettings lateral_controller(25, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              200, // derivative gain (kD)
-                                              0, // anti windup
-                                              1, // small error range, in inches
-                                              100, // small error range timeout, in milliseconds
-                                              3, // large error range, in inches
-                                              500, // large error range timeout, in milliseconds
-                                              10 // maximum acceleration (slew)
-);
 
-// angular PID controller
-lemlib::ControllerSettings angular_controller(9, // proportional gain (kP)
+// lateral PID controller
+lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
                                               0, // integral gain (kI)
-                                              55, // derivative gain (kD)
+                                              10, // derivative gain (kD)
                                               0, // anti windup
-                                              0, // small error range, in degrees
+                                              0, // small error range, in inches
                                               0, // small error range timeout, in milliseconds
-                                              0, // large error range, in degrees
+                                              0, // large error range, in inches
                                               0, // large error range timeout, in milliseconds
                                               0 // maximum acceleration (slew)
 );
+
+
+// angular PID controller
+lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              10, // derivative gain (kD)
+                                              0, // anti windup
+                                              0, // small error range, in inches
+                                              0, // small error range timeout, in milliseconds
+                                              0, // large error range, in inches
+                                              0, // large error range timeout, in milliseconds
+                                              0 // maximum acceleration (slew)
+);
+
 
 // create the chassis
 lemlib::Chassis chassis(drivetrain, // drivetrain settings
@@ -74,6 +81,7 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
                         angular_controller, // angular PID settings
                         sensors // odometry sensors
 );
+
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -83,8 +91,10 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
  */
 void initialize() {
     pros::lcd::initialize;
+    lvgl_init;
     chassis.calibrate(); // calibrate sensors
 }
+
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -92,6 +102,7 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {}
+
 
 /**
  * Runs after initialize(), and before autonomous when connected to the Field
@@ -103,9 +114,9 @@ void disabled() {}
  * starts.
  */
 
-void competition_initialize() {
-    
-}
+
+void competition_initialize(void) {}
+
 
 /**
  * Runs the user autonomous code. This function will be started in its own task
@@ -119,35 +130,151 @@ void competition_initialize() {
  * from where it left off.
  */
 void autonomous() {
-    if(red == true && rings == true){
+    if(justMove == true) {
         intake.set_zero_position(0);
-        leftDrive.set_zero_position(0);
-        rightDrive.set_zero_position(0);
-        leftDrive.move_absolute(50, 100);
-        rightDrive.move_absolute(50, 100);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 180);
+        chassis.moveToPoint(0, 30, 700, {.forwards = false, .maxSpeed=70}, true);
+        chassis.waitUntilDone();
+        pros::delay(500);
+        piston.set_value(true);
+        pros::delay(1000);
+        conveyor.move_absolute(-360, 127);
+        pros::delay(1000);
+        conveyor.move_absolute(2000, 127);
     }
-    if(red == true && rings == false){
+
+    if(test == true) {
         intake.set_zero_position(0);
-        leftDrive.set_zero_position(0);
-        rightDrive.set_zero_position(0);
-        leftDrive.move_absolute(50, 100);
-        rightDrive.move_absolute(50, 100);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 0);
+        conveyor.move_absolute(-360, 50);
+        chassis.moveToPoint(0, -13, 700, {.forwards = false}, true);
+        pros::delay(500);
+        chassis.turnToHeading(-90, 700);
+        pros::delay(500);
+        chassis.moveToPoint(10, -15, 500, {.forwards = false}, true);
+        conveyor.move_absolute(5000, 127);
+        pros::delay(1000);
+        chassis.moveToPoint(-2, -15, 1000, {.forwards = true}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-180, 700);
+        pros::delay(1000);
+        chassis.moveToPoint(-2, -9, 1000, {.forwards = false}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-240, 1000);
+        pros::delay(1000);
+        piston.set_value(false);
+        chassis.moveToPoint(-25, 4, 1000, {.forwards = false}, true);
+        pros::delay(900);
+        piston.set_value(true);
+        pros::delay(1000);
+		chassis.turnToHeading(0, 1000);
+        pros::delay(1000);
+        /*
+		intake.move_absolute(5000, 127);
+		conveyor.move_absolute(5000, 127);
+		chassis.moveToPoint(0, 10, 500, {.forwards = true}, true);
+        /*
+		chassis.turnToHeading(-90, 1000);
+		chassis.setPose(0, 0, 0);
+		chassis.moveToPoint(0, -10, 500, {.forwards = false}, true);
+       */
     }
-    if(red == false && rings == true){
+    if(red == true && rings == true && test == false && justMove == false){
+        pros::delay(5000);
         intake.set_zero_position(0);
-        leftDrive.set_zero_position(0);
-        rightDrive.set_zero_position(0);
-        leftDrive.move_absolute(50, 100);
-        rightDrive.move_absolute(50, 100);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 0);
+        conveyor.move_absolute(-360, 50);
+        chassis.moveToPoint(0, -13, 700, {.forwards = false}, true);
+        pros::delay(500);
+        chassis.turnToHeading(90, 700);
+        pros::delay(500);
+        chassis.moveToPoint(-10, -15, 500, {.forwards = false}, true);
+        conveyor.move_absolute(5000, 127);
+        pros::delay(1000);
+        chassis.moveToPoint(2, -15, 1000, {.forwards = true}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(180, 700);
+        pros::delay(1000);
+        chassis.moveToPoint(2, -9, 1000, {.forwards = false}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(240, 1000);
+        pros::delay(1000);
+        piston.set_value(false);
     }
-    if(red == false && rings == false){
+    if(red == true && rings == false && test == false && justMove == false){
+        pros::delay(5000);
         intake.set_zero_position(0);
-        leftDrive.set_zero_position(0);
-        rightDrive.set_zero_position(0);
-        leftDrive.move_absolute(50, 100);
-        rightDrive.move_absolute(50, 100);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 0);
+        conveyor.move_absolute(-360, 50);
+        chassis.moveToPoint(0, 13, 700, {.forwards = false}, true);
+        pros::delay(500);
+        chassis.turnToHeading(-90, 700);
+        pros::delay(500);
+        chassis.moveToPoint(10, 15, 500, {.forwards = false}, true);
+        conveyor.move_absolute(5000, 127);
+        pros::delay(1000);
+        chassis.moveToPoint(2, 15, 1000, {.forwards = true}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-180, 700);
+        pros::delay(1000);
+        chassis.moveToPoint(2, 9, 1000, {.forwards = false}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-240, 1000);
+        pros::delay(1000);
+        piston.set_value(false);
+    }
+    if(red == false && rings == true && test == false && justMove == false){
+        pros::delay(7000);
+        intake.set_zero_position(0);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 0);
+        conveyor.move_absolute(-360, 50);
+        chassis.moveToPoint(0, -13, 700, {.forwards = false}, true);
+        pros::delay(500);
+        chassis.turnToHeading(-90, 700);
+        pros::delay(500);
+        chassis.moveToPoint(10, -15, 500, {.forwards = false}, true);
+        conveyor.move_absolute(5000, 127);
+        pros::delay(1000);
+        chassis.moveToPoint(-2, -15, 1000, {.forwards = true}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-180, 700);
+        pros::delay(1000);
+        chassis.moveToPoint(-2, -9, 1000, {.forwards = false}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(-240, 1000);
+        pros::delay(1000);
+        piston.set_value(false);
+    }
+    if(red == false && rings == false && test == false && justMove == false){
+        pros::delay(5000);
+        intake.set_zero_position(0);
+        conveyor.set_zero_position(0);
+        chassis.setPose(0, 0, 0);
+        conveyor.move_absolute(-360, 50);
+        chassis.moveToPoint(0, 13, 700, {.forwards = false}, true);
+        pros::delay(500);
+        chassis.turnToHeading(90, 700);
+        pros::delay(500);
+        chassis.moveToPoint(-10, 15, 500, {.forwards = false}, true);
+        conveyor.move_absolute(5000, 127);
+        pros::delay(1000);
+        chassis.moveToPoint(2, 15, 1000, {.forwards = true}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(180, 700);
+        pros::delay(1000);
+        chassis.moveToPoint(2, 9, 1000, {.forwards = false}, true);
+        pros::delay(1000);
+        chassis.turnToHeading(240, 1000);
+        pros::delay(1000);
+        piston.set_value(false);
     }
 }
+
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -163,31 +290,14 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-    /*
-    lv_obj_t * img1 = lv_img_create(lv_scr_act());
-    lv_img_set_src(img1, &axolotlFire);
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);  
-    */
-   
-    // drive control setup
-    while(setupDrive == false) {
-        pros::screen::print(TEXT_LARGE, 1, "jake drive = A"); // prints to brain
-        pros::screen::print(TEXT_LARGE, 2, "liam drive = B"); // prints to brain
-        if(controller.get_digital(DIGITAL_A)){
-            jake = true; // sets our drive with the clamp as the front
-            setupDrive = true; // finishes the first setup
-        }
-        else if(controller.get_digital(DIGITAL_B)){
-            jake = false; // sets our drive with the intake as the front
-            setupDrive = true; // finishes the first setup
-        }
-		pros::delay(20); // delay to save resources
-    }
 
-    while(setupDrive == true && setupColor == false) {
+	// auton setup
+    while(setupColor == false) {
         pros::screen::erase(); // erases brain
         pros::screen::print(TEXT_LARGE, 1, "Red = X"); // prints to brain
         pros::screen::print(TEXT_LARGE, 2, "Blue = Y"); // prints to brain
+        pros::screen::print(TEXT_LARGE, 3, "Test = A"); // prints to brain
+        pros::screen::print(TEXT_LARGE, 4, "Just Move = B"); // prints to brain
         if(controller.get_digital(DIGITAL_X)){
             red = true; // sets our auton to red alliance
             setupColor = true; // finishes the second setup
@@ -196,52 +306,66 @@ void opcontrol() {
             red = false; // sets our auton to blue alliance
             setupColor = true; // finishes the second setup
         }
+        else if(controller.get_digital(DIGITAL_A)){
+            test = true;
+            setupColor = true;
+            setupSide = true;
+        }
+        else if(controller.get_digital(DIGITAL_B)){
+            justMove = true;
+            setupColor = true;
+            setupSide = true;
+        }
         pros::delay(20); // delay to save resources
     }
 
-    while(setupDrive == true && setupColor == true && setupSide == false) {
+    while(setupColor == true && setupSide == false) {
         pros::screen::erase(); // erases brain
-        pros::screen::print(TEXT_LARGE, 1, "Rings = L1 "); // prints to brain
-        pros::screen::print(TEXT_LARGE, 2, "Mobile Goal = R1"); // prints to brain
-        if(controller.get_digital(DIGITAL_L1)){
+        pros::screen::print(TEXT_LARGE, 1, "Rings = L2 "); // prints to brain
+        pros::screen::print(TEXT_LARGE, 2, "Mobile Goal = R2"); // prints to brain
+        if(controller.get_digital(DIGITAL_L2)){
             rings = true; // sets our auton to the side with 4 rings
             setupSide = true; // finishes the third setup
         }
-        else if(controller.get_digital(DIGITAL_R1)){
+        else if(controller.get_digital(DIGITAL_R2)){
             rings = false; // sets our auton to the side with an extra mobile goal
             setupSide = true; // finishes the third setup
         }
         pros::delay(20); // delay to save resources
     }
 
-    while (setupDrive == true && setupColor == true && setupSide == true) {
-        pros::screen::erase(); // erases brain
+
+    pros::screen::erase(); // erases brain
+    /*
+    lv_obj_t * img1 = lv_img_create(lv_scr_act());
+    lv_img_set_src(img1, &axolotlFire);
+    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);  
+    */
+
+
+    while (setupColor == true && setupSide == true) {
+
 
         // tank drive control scheme
-        if(jake == true){
-        int tankLeft = controller.get_analog(ANALOG_LEFT_Y); // the left analog stick controls the left side of the drive train
-        int tankRight = controller.get_analog(ANALOG_RIGHT_Y); // the right analog stick controls the left side of the drive train         
-        chassis.tank(tankLeft, tankRight); // creates a tank drive scheme
-        }
-        else if(jake == false){
-            int tankLeft = -controller.get_analog(ANALOG_RIGHT_Y); // the right analog stick controls the left side of the drive train     
-            int tankRight = -controller.get_analog(ANALOG_LEFT_Y); // the left analog stick controls the left side of the drive train
-            chassis.tank(tankLeft, tankRight); // creates a tank drive scheme
-        }
+        	int tankLeft = controller.get_analog(ANALOG_LEFT_Y); // the left analog stick controls the left side of the drive train
+        	int tankRight = controller.get_analog(ANALOG_RIGHT_Y); // the right analog stick controls the left side of the drive train        
+        	chassis.tank(tankLeft, tankRight); // creates a tank drive scheme
+
 
         // intake + conveyor control scheme
-        if(controller.get_digital(DIGITAL_R2)) { 
+        if(controller.get_digital(DIGITAL_R1)) {
             intake.move(127); // moves the intake forwards at max speed
-			conveyor.move(127); // moves the conveyor forwards at max speed
+            conveyor.move(127); // moves the conveyor forwards at max speed
         }
-        else if(controller.get_digital(DIGITAL_L2)) {
+        else if(controller.get_digital(DIGITAL_R2)) {
             intake.move(-127); // moves the intake forwards at max speed
-			conveyor.move(-127); // moves the conveyor backwards at max speed
+            conveyor.move(-127); // moves the conveyor backwards at max speed
         }
         else {
             intake.move(0); // stops the intake from moving
-			conveyor.move(0); // stops the conveyor from moving
+            conveyor.move(0); // stops the conveyor from moving
         }
+
 
         // clamp control scheme (new)
         if(controller.get_digital(DIGITAL_A)){
@@ -251,9 +375,10 @@ void opcontrol() {
             piston.set_value(true);
         }
 
+
         /* clamp control scheme (old)
         if(controller.get_digital(DIGITAL_A) && pistonValue == 1){
-            piston.set_value(false); 
+            piston.set_value(false);
             pros::delay(500);
             pistonValue = 0;
         }
@@ -264,19 +389,16 @@ void opcontrol() {
         }
         */
        
-		// lift control scheme
-		if(controller.get_digital(DIGITAL_R1)){
-			lift.move(50); // moves the lift forwards at ~75% velocity
-		}
-		else if(controller.get_digital(DIGITAL_L1)){
-			lift.move(-25); // moves the lift backwards at ~75% velocity
-		}
-		else{
-			lift.move(0); // stops the lift from moving
-		}
+        // lift control scheme
+        if(controller.get_digital(DIGITAL_L1)){
+            Lift.set_value(true);
+        }
+        else if(controller.get_digital(DIGITAL_L2)){
+            Lift.set_value(false);
+        }
 
-        /*
-        // wing control scheme (wing not completed yet)
+
+        /* wing control scheme (old)
         if(controller.get_digital(DIGITAL_Y) && wingValue == 0) {
             wing.move_absolute(-240, 100);
             pros::delay(500);
@@ -289,6 +411,11 @@ void opcontrol() {
         }
         */
 
-		pros::delay(20); // delay to save resources
-	}
+
+        pros::delay(20); // delay to save resources
+    }
 }
+
+
+
+
