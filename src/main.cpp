@@ -405,15 +405,15 @@ void opcontrol() {
 
         // intake + conveyor control scheme
         if(controller.get_digital(DIGITAL_R1)) {
-            intake.move(60); // moves the intake forwards at max speed
+            intake.move(-60); // moves the intake forwards at max speed
             conveyor.move(127); // moves the conveyor forwards at max speed
         }
         else if(controller.get_digital(DIGITAL_R2)) {
-            intake.move(-60); // moves the intake forwards at max speed
+            intake.move(60); // moves the intake forwards at max speed
             conveyor.move(-127); // moves the conveyor backwards at max speed
         }
         else if(controller.get_digital(DIGITAL_UP)){
-            intake.move(60);
+            intake.move(-60);
         }
         else {
             intake.move(0); // stops the intake from moving
